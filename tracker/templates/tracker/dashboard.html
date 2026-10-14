@@ -1,0 +1,823 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TCS CPA Prep</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet" />
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'system-ui', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+          },
+        },
+      },
+    }
+  </script>
+
+  <style>
+    :root {
+      --ink: #121912;
+      --lime: #c8f044;
+      --line: #e4ebe0;
+      --muted: #6b7a69;
+      --canvas: #f2f5ee;
+    }
+
+    body {
+      background-color: var(--canvas);
+      background-image:
+        radial-gradient(ellipse 70% 50% at 80% 10%, rgba(200, 240, 68, 0.18), transparent 70%);
+      background-attachment: fixed;
+      color: var(--ink);
+    }
+
+    /* Sidebar navigation */
+    .nav-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      width: 100%;
+      padding: 10px 14px;
+      border-radius: 12px;
+      font-size: 13px;
+      font-weight: 500;
+      color: #4b5a49;
+      white-space: nowrap;
+      transition: background-color 0.15s ease, color 0.15s ease;
+    }
+    .nav-item:hover { background: #f1f6ed; color: var(--ink); }
+    .nav-item.active { background: var(--lime); color: var(--ink); font-weight: 600; }
+    .nav-item:focus-visible,
+    .btn:focus-visible,
+    .custom-checkbox:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+    /* Checkbox */
+    .custom-checkbox {
+      appearance: none;
+      width: 20px;
+      height: 20px;
+      border-radius: 6px;
+      border: 1.5px solid #c7d5c3;
+      background: #fff;
+      cursor: pointer;
+      flex-shrink: 0;
+      position: relative;
+      transition: background-color 0.15s ease, border-color 0.15s ease;
+    }
+    .custom-checkbox:hover { border-color: #8da488; }
+    .custom-checkbox:checked { background: var(--ink); border-color: var(--ink); }
+    .custom-checkbox:checked::after {
+      content: '';
+      position: absolute;
+      top: 45%;
+      left: 50%;
+      width: 5px;
+      height: 9px;
+      border: solid var(--lime);
+      border-width: 0 2px 2px 0;
+      transform: translate(-50%, -55%) rotate(45deg);
+    }
+
+    .task-row.completed .task-title { text-decoration: line-through; color: #94a191; }
+
+    /* Expanding drawers */
+    .drawer {
+      max-height: 0;
+      overflow: hidden;
+      opacity: 0;
+      transition: max-height 0.25s ease, opacity 0.2s ease;
+    }
+    .drawer.open { max-height: 260px; opacity: 1; }
+
+    /* Subject tag */
+    .tag {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 6px;
+      background: #eef3ea;
+      color: #3f5539;
+      white-space: nowrap;
+    }
+
+    /* Status badge */
+    .status { font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 9999px; }
+    .status-PENDING { background: #f1f4ee; color: #5b6a58; }
+    .status-SOLVED { background: #eafaf1; color: #166534; }
+    .status-NEEDS_REVISION { background: #fdf0f2; color: #9f1239; }
+
+    /* Buttons */
+    .btn {
+      font-size: 12px;
+      font-weight: 600;
+      padding: 8px 14px;
+      border-radius: 12px;
+      transition: background-color 0.15s ease;
+    }
+    .btn-dark { background: var(--ink); color: var(--lime); }
+    .btn-dark:hover { background: #000; }
+    .btn-soft { background: #f1f5ee; color: #3a4a38; border: 1px solid var(--line); }
+    .btn-soft:hover { background: #e8f0e3; }
+
+    .field {
+      width: 100%;
+      background: #f8faf6;
+      border: 1px solid #d6e2d2;
+      border-radius: 12px;
+      padding: 8px 12px;
+      font-size: 13px;
+      outline: none;
+    }
+    .field:focus { border-color: #8bb626; background: #fff; }
+
+    /* Modal */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(18, 25, 18, 0.4);
+      backdrop-filter: blur(6px);
+      z-index: 60;
+      display: none;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-overlay.open { display: flex; }
+
+    .hidden-view { display: none !important; }
+
+    @media (prefers-reduced-motion: reduce) {
+      * { transition: none !important; }
+    }
+  </style>
+</head>
+
+<body class="min-h-screen p-2 sm:p-4 lg:p-6 antialiased selection:bg-[#c8f044]">
+
+{% csrf_token %}
+
+<div class="max-w-[1280px] mx-auto min-h-[92vh] rounded-[28px] bg-white border border-[#e1e9db] shadow-[0_24px_70px_-15px_rgba(20,35,20,0.07)] flex flex-col lg:flex-row overflow-hidden">
+
+  <!-- Sidebar -->
+  <aside class="w-full lg:w-[230px] bg-[#fbfdfa] border-b lg:border-b-0 lg:border-r border-[#e5ece1] p-4 lg:p-5 flex-shrink-0">
+    <div class="flex items-center gap-3 mb-4 lg:mb-8 px-1">
+      <div class="w-9 h-9 rounded-xl bg-[#c8f044] flex items-center justify-center">
+        <svg class="w-5 h-5 text-[#121c0b]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.3" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+        </svg>
+      </div>
+      <div class="text-[15px] font-extrabold tracking-tight">TCS CPA</div>
+    </div>
+
+    <nav class="flex lg:flex-col gap-1 overflow-x-auto" id="nav-group">
+      <button class="nav-item active" data-view="daily" onclick="switchView('daily')">
+        <span>Study plan</span>
+      </button>
+      <button class="nav-item" data-view="coding" onclick="switchView('coding')">
+        <span>Coding</span>
+      </button>
+      <button class="nav-item" data-view="syllabus" onclick="switchView('syllabus')">
+        <span>Subjects</span>
+      </button>
+      <button class="nav-item" data-view="mistakes" onclick="switchView('mistakes')">
+        <span>Mistakes</span>
+        <span class="text-[11px] font-semibold px-1.5 rounded bg-[#eef3ea] text-[#3f5539]" id="sidebar-mistakes-count">{{ mistakes|length }}</span>
+      </button>
+    </nav>
+  </aside>
+
+  <!-- Main -->
+  <main class="flex-1 min-w-0">
+
+    <!-- Top bar: progress, countdown, timer -->
+    <header class="px-5 sm:px-8 py-4 border-b border-[#edf2ea] flex flex-wrap items-center justify-between gap-4">
+      <div class="flex items-center gap-4 min-w-[220px]">
+        <div>
+          <div class="text-sm font-bold">
+            <span id="kpi-done">{{ stats.completed }}</span> of <span id="kpi-total">{{ stats.total }}</span> done
+          </div>
+          <div class="text-xs text-[#6b7a69]" id="exam-countdown"></div>
+        </div>
+        <div class="w-28 bg-[#edf2e8] h-2 rounded-full overflow-hidden">
+          <div class="bg-[#121912] h-2 rounded-full transition-all duration-500" id="kpi-bar" style="width: {{ stats.pct }}%"></div>
+        </div>
+        <span class="text-xs font-mono font-semibold text-[#4b5a49]" id="kpi-pct">{{ stats.pct }}%</span>
+      </div>
+
+      <div class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#f6f9f2] border border-[#e1e9db]">
+        <span class="font-mono text-xs font-semibold w-11" id="timer-display">00:00</span>
+        <button onclick="setTimer(70*60)" class="text-[11px] font-semibold text-[#4b5a49] hover:text-black">70 min</button>
+        <button onclick="setTimer(50*60)" class="text-[11px] font-semibold text-[#4b5a49] hover:text-black">50 min</button>
+        <button onclick="toggleTimer()" id="btn-start-pause" class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#121912] text-[#c8f044]">Start</button>
+        <button onclick="resetTimer()" class="text-[11px] text-[#6b7a69] hover:text-black">Reset</button>
+      </div>
+    </header>
+
+    <div class="px-5 sm:px-8 py-8 space-y-6">
+
+      <!-- Study plan -->
+      <section id="view-daily" class="space-y-4">
+        <h1 class="text-xl font-bold">Study plan</h1>
+
+        {% for day in study_days %}
+        <div class="rounded-2xl border border-[#e4ece0] overflow-hidden" id="day-card-{{ day.id }}">
+          <div class="px-5 py-3.5 bg-[#fbfdfa] border-b border-[#edf2ea] flex flex-wrap items-center justify-between gap-3">
+            <div class="flex items-center gap-2">
+              <span class="text-sm font-bold">{{ day.date|date:"D, d M" }}</span>
+              {% if day.date|date:"Y-m-d" == "2026-10-16" %}
+              <span class="text-[11px] px-2 py-0.5 rounded-full font-bold bg-[#c8f044]">Exam day</span>
+              {% endif %}
+            </div>
+            <div class="flex items-center gap-3">
+              <span class="text-xs font-semibold text-[#4b5a49]">
+                <span id="day-done-{{ day.id }}">{{ day.completed_tasks }}</span>/<span id="day-total-{{ day.id }}">{{ day.total_tasks }}</span>
+              </span>
+              <div class="w-20 bg-[#edf2e8] h-1.5 rounded-full overflow-hidden">
+                <div class="bg-[#121912] h-1.5 rounded-full transition-all duration-300" id="day-bar-{{ day.id }}" style="width: {{ day.progress_pct }}%"></div>
+              </div>
+              <span class="text-xs font-mono font-semibold text-[#6b7a69] w-9 text-right" id="day-pct-{{ day.id }}">{{ day.progress_pct }}%</span>
+            </div>
+          </div>
+
+          <div class="divide-y divide-[#f2f6ee]" id="day-tasks-{{ day.id }}">
+            {% for task in day.tasks.all %}
+            <div class="task-row px-5 py-3 flex items-center gap-3 hover:bg-[#f9fbf7] {% if task.is_completed %}completed{% endif %}"
+                 id="task-row-{{ task.id }}" data-task-id="{{ task.id }}">
+              <input type="checkbox" class="custom-checkbox" id="cb-{{ task.id }}"
+                     {% if task.is_completed %}checked{% endif %}
+                     onchange="toggleTask({{ task.id }}, this)" aria-label="Mark done" />
+              <span class="tag">{{ task.subject.code }}</span>
+              <span class="task-title flex-1 min-w-0 text-sm font-medium">{{ task.title }}</span>
+              {% if task.resource_url %}
+              <a href="{{ task.resource_url }}" target="_blank" rel="noopener noreferrer" class="btn btn-soft !py-1 !px-2.5 !text-[11px]">Open</a>
+              {% endif %}
+              <button onclick="toggleDrawer('notes-drawer-{{ task.id }}')" class="btn btn-soft !py-1 !px-2.5 !text-[11px]">Notes</button>
+            </div>
+
+            <div class="drawer bg-[#fbfdfa] px-5" id="notes-drawer-{{ task.id }}">
+              <div class="py-3">
+                <textarea id="notes-input-{{ task.id }}" class="field resize-none font-mono !text-xs" rows="2" placeholder="Notes">{{ task.notes }}</textarea>
+                <div class="flex justify-end mt-2">
+                  <button onclick="saveNote({{ task.id }})" class="btn btn-dark !py-1 !px-3">Save</button>
+                </div>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+
+          <div class="p-3 border-t border-[#edf2ea]">
+            <button onclick="openAddTaskModal({{ day.id }})"
+                    class="w-full py-2 rounded-xl text-xs font-medium text-[#6b7a69] hover:text-black border border-dashed border-[#d8e3d3] hover:bg-[#f6faf3] transition-colors">
+              Add task
+            </button>
+          </div>
+        </div>
+        {% endfor %}
+      </section>
+
+      <!-- Coding -->
+      <section id="view-coding" class="space-y-4 hidden-view">
+        <h1 class="text-xl font-bold">Coding</h1>
+
+        <div class="space-y-3" id="coding-cards">
+          {% for cp in coding_practices %}
+          <div class="rounded-2xl p-4 border border-[#e4ece0]" id="cp-card-{{ cp.id }}">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+              <div class="flex-1 min-w-[240px]">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <span class="tag">{{ cp.get_category_display }}</span>
+                  <span class="text-sm font-bold">{{ cp.title }}</span>
+                </div>
+                <div class="text-xs text-[#6b7a69] mt-1.5" id="edge-{{ cp.id }}">{% if cp.key_edge_cases %}{{ cp.key_edge_cases }}{% endif %}</div>
+              </div>
+
+              <div class="flex items-center gap-2 flex-wrap">
+                <a href="{{ cp.url }}" target="_blank" rel="noopener noreferrer" class="btn btn-soft !py-1.5">Open</a>
+                <span class="status status-{{ cp.status }}" id="cp-status-badge-{{ cp.id }}">{{ cp.get_status_display }}</span>
+                <select id="cp-status-select-{{ cp.id }}" onchange="updateCodingStatus({{ cp.id }}, this.value)"
+                        class="text-xs bg-white border border-[#d6e2d2] rounded-lg px-2 py-1.5 outline-none cursor-pointer">
+                  <option value="PENDING" {% if cp.status == 'PENDING' %}selected{% endif %}>Pending</option>
+                  <option value="SOLVED" {% if cp.status == 'SOLVED' %}selected{% endif %}>Solved</option>
+                  <option value="NEEDS_REVISION" {% if cp.status == 'NEEDS_REVISION' %}selected{% endif %}>Revise</option>
+                </select>
+                <button onclick="toggleDrawer('cp-edit-{{ cp.id }}')" class="btn btn-soft !py-1.5">Edit</button>
+              </div>
+            </div>
+
+            <div class="drawer" id="cp-edit-{{ cp.id }}">
+              <div class="pt-3 grid grid-cols-1 sm:grid-cols-[120px_1fr_auto] gap-2 items-end">
+                <input type="number" id="cp-time-{{ cp.id }}" value="{{ cp.time_taken_mins|default:'' }}" class="field" placeholder="Minutes" />
+                <input type="text" id="cp-edge-{{ cp.id }}" value="{{ cp.key_edge_cases }}" class="field font-mono !text-xs" placeholder="Edge cases" />
+                <button onclick="saveCPEdit({{ cp.id }})" class="btn btn-dark">Save</button>
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+
+        <div class="rounded-2xl p-5 border border-[#e4ece0]">
+          <div class="text-sm font-bold mb-3">Add problem</div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <input type="text" id="new-cp-title" placeholder="Title" class="field" />
+            <select id="new-cp-category" class="field cursor-pointer">
+              <option value="15_MARK">15 mark</option>
+              <option value="35_MARK">35 mark</option>
+              <option value="FUNDAMENTALS">Fundamentals</option>
+            </select>
+            <input type="url" id="new-cp-url" placeholder="Link" class="field" />
+            <input type="text" id="new-cp-edge" placeholder="Edge cases (optional)" class="field" />
+          </div>
+          <button onclick="addCodingProblem()" class="btn btn-dark mt-3">Add</button>
+        </div>
+      </section>
+
+      <!-- Subjects -->
+      <section id="view-syllabus" class="space-y-4 hidden-view">
+        <h1 class="text-xl font-bold">Subjects</h1>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {% for subject in subjects %}
+          <div class="rounded-2xl p-4 border border-[#e4ece0]" id="subject-card-{{ subject.id }}">
+            <div class="flex items-start justify-between mb-3">
+              <div class="text-sm font-bold">{{ subject.name }}</div>
+              <div class="text-xs font-mono font-semibold text-[#4b5a49]">{{ subject.marks }}M</div>
+            </div>
+            <div class="w-full bg-[#edf2e8] h-1.5 rounded-full overflow-hidden mb-2">
+              <div class="bg-[#121912] h-1.5 rounded-full transition-all duration-300" id="subject-bar-{{ subject.id }}" style="width: {{ subject.progress_pct }}%"></div>
+            </div>
+            <div class="flex items-center justify-between text-xs text-[#6b7a69]">
+              <span><span id="subject-done-{{ subject.id }}">{{ subject.completed_tasks }}</span>/<span id="subject-total-{{ subject.id }}">{{ subject.total_tasks }}</span> tasks</span>
+              <span class="font-mono font-semibold" id="subject-pct-{{ subject.id }}">{{ subject.progress_pct }}%</span>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </section>
+
+      <!-- Mistakes -->
+      <section id="view-mistakes" class="space-y-4 hidden-view">
+        <h1 class="text-xl font-bold">Mistakes</h1>
+
+        <div class="space-y-3" id="mistake-cards">
+          {% for mistake in mistakes %}
+          <div class="rounded-2xl p-4 border border-[#e4ece0]" id="mistake-card-{{ mistake.id }}">
+            <div class="flex flex-wrap items-start justify-between gap-3">
+              <div class="flex-1 min-w-[240px]">
+                <div class="flex items-center gap-2 mb-2 flex-wrap">
+                  <span class="tag">{{ mistake.subject.code }}</span>
+                  <span class="text-sm font-bold">{{ mistake.topic_or_question }}</span>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                  <div class="p-3 rounded-xl bg-[#fff5f5] border border-[#fdd8d8]">
+                    <span class="font-semibold text-rose-700 block mb-0.5">Wrong</span>{{ mistake.what_went_wrong }}
+                  </div>
+                  <div class="p-3 rounded-xl bg-[#f0faf2] border border-[#c9eed1]">
+                    <span class="font-semibold text-emerald-800 block mb-0.5">Fix</span>{{ mistake.correct_concept_or_fix }}
+                  </div>
+                </div>
+              </div>
+              <div class="flex flex-col gap-1.5">
+                <button onclick="toggleMistake({{ mistake.id }}, this)" id="mistake-toggle-{{ mistake.id }}"
+                        class="btn {% if mistake.is_resolved %}bg-emerald-100 text-emerald-800{% else %}bg-amber-100 text-amber-800{% endif %}">
+                  {% if mistake.is_resolved %}Resolved{% else %}Review{% endif %}
+                </button>
+                <button onclick="deleteMistake({{ mistake.id }})" class="btn text-rose-600 hover:bg-rose-50">Delete</button>
+              </div>
+            </div>
+          </div>
+          {% empty %}
+          <div id="no-mistakes" class="text-center py-8 text-xs text-[#6b7a69] rounded-2xl border border-dashed border-[#e1e9db]">
+            Nothing logged yet.
+          </div>
+          {% endfor %}
+        </div>
+
+        <div class="rounded-2xl p-5 border border-[#e4ece0]">
+          <div class="text-sm font-bold mb-3">Add mistake</div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <select id="new-mistake-subject" class="field cursor-pointer">
+              <option value="">Subject</option>
+              {% for s in all_subjects %}
+              <option value="{{ s.id }}">{{ s.code }}</option>
+              {% endfor %}
+            </select>
+            <input type="text" id="new-mistake-topic" placeholder="Topic" class="field" />
+            <textarea id="new-mistake-wrong" placeholder="What went wrong" rows="2" class="field resize-none"></textarea>
+            <textarea id="new-mistake-fix" placeholder="Correct concept" rows="2" class="field resize-none"></textarea>
+          </div>
+          <button onclick="addMistake()" class="btn btn-dark mt-3">Add</button>
+        </div>
+      </section>
+
+    </div>
+  </main>
+</div>
+
+<!-- Add task modal -->
+<div class="modal-overlay" id="add-task-modal" onclick="closeAddTaskModal()">
+  <div class="bg-white rounded-3xl p-6 w-full max-w-md mx-4 shadow-2xl border border-[#e2ebd9]" onclick="event.stopPropagation()">
+    <div class="text-base font-bold mb-4">Add task</div>
+    <input type="hidden" id="modal-day-id" />
+    <div class="space-y-3">
+      <select id="modal-subject" class="field cursor-pointer">
+        {% for s in all_subjects %}
+        <option value="{{ s.id }}">{{ s.code }}</option>
+        {% endfor %}
+      </select>
+      <input type="text" id="modal-title" placeholder="Task" class="field" />
+      <input type="url" id="modal-url" placeholder="Link (optional)" class="field" />
+    </div>
+    <div id="modal-error" class="mt-3 text-xs text-rose-600 hidden"></div>
+    <div class="flex gap-2 mt-5">
+      <button onclick="closeAddTaskModal()" class="btn btn-soft flex-1">Cancel</button>
+      <button onclick="submitAddTask()" class="btn btn-dark flex-1">Add</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast" class="fixed bottom-6 right-6 z-50 hidden transition-opacity duration-300" role="status">
+  <div class="bg-[#121912] text-white rounded-xl px-4 py-2.5 text-xs font-medium shadow-xl" id="toast-msg"></div>
+</div>
+
+<script>
+// ---- Helpers ----
+function getCsrf() {
+  return document.cookie.match(/csrftoken=([^;]+)/)?.[1]
+      || document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
+}
+
+async function postJSON(url, data) {
+  const resp = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
+    body: JSON.stringify(data),
+  });
+  return resp.json();
+}
+
+function esc(s) {
+  const d = document.createElement('div');
+  d.textContent = s ?? '';
+  return d.innerHTML;
+}
+
+let toastTimer;
+function showToast(msg) {
+  const el = document.getElementById('toast');
+  document.getElementById('toast-msg').textContent = msg;
+  el.classList.remove('hidden');
+  el.style.opacity = '1';
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => {
+    el.style.opacity = '0';
+    setTimeout(() => el.classList.add('hidden'), 300);
+  }, 2000);
+}
+
+function toggleDrawer(id) {
+  document.getElementById(id)?.classList.toggle('open');
+}
+
+// ---- Exam countdown ----
+function updateExamCountdown() {
+  const el = document.getElementById('exam-countdown');
+  const diff = new Date('2026-10-16T09:00:00+05:30') - new Date();
+  if (diff <= 0) { el.textContent = 'Exam day'; return; }
+  const d = Math.floor(diff / 86400000);
+  const h = Math.floor((diff % 86400000) / 3600000);
+  el.textContent = `${d}d ${h}h to exam`;
+}
+updateExamCountdown();
+setInterval(updateExamCountdown, 60000);
+
+// ---- Timer ----
+let timerTotal = 0, timerRemaining = 0, timerRunning = false, timerInterval = null;
+
+function renderTimer() {
+  const m = String(Math.floor(timerRemaining / 60)).padStart(2, '0');
+  const s = String(timerRemaining % 60).padStart(2, '0');
+  document.getElementById('timer-display').textContent = `${m}:${s}`;
+}
+
+function setTimer(secs) {
+  resetTimer();
+  timerTotal = secs;
+  timerRemaining = secs;
+  renderTimer();
+}
+
+function toggleTimer() {
+  if (timerTotal === 0) setTimer(70 * 60);
+  const btn = document.getElementById('btn-start-pause');
+  timerRunning = !timerRunning;
+  if (timerRunning) {
+    btn.textContent = 'Pause';
+    timerInterval = setInterval(() => {
+      if (timerRemaining <= 0) {
+        clearInterval(timerInterval);
+        timerRunning = false;
+        btn.textContent = 'Start';
+        showToast('Time is up');
+        return;
+      }
+      timerRemaining--;
+      renderTimer();
+    }, 1000);
+  } else {
+    clearInterval(timerInterval);
+    btn.textContent = 'Start';
+  }
+}
+
+function resetTimer() {
+  clearInterval(timerInterval);
+  timerRunning = false;
+  timerRemaining = timerTotal;
+  renderTimer();
+  const btn = document.getElementById('btn-start-pause');
+  if (btn) btn.textContent = 'Start';
+}
+
+// ---- Views ----
+function switchView(name) {
+  document.querySelectorAll('.nav-item').forEach(b => {
+    b.classList.toggle('active', b.dataset.view === name);
+  });
+  ['daily', 'coding', 'syllabus', 'mistakes'].forEach(v => {
+    document.getElementById(`view-${v}`)?.classList.toggle('hidden-view', v !== name);
+  });
+}
+
+// ---- Tasks ----
+async function toggleTask(taskId, cbEl) {
+  const row = document.getElementById(`task-row-${taskId}`);
+  const data = await postJSON(`/api/task/${taskId}/toggle/`, {});
+  if (!data.success) {
+    cbEl.checked = !cbEl.checked;
+    showToast('Could not update task');
+    return;
+  }
+  row.classList.toggle('completed', data.is_completed);
+  updateDayProgress(data.day_id, data.day_completed, data.day_total, data.day_pct);
+  updateSubjectProgress(data.subject_id, data.subject_completed, data.subject_total, data.subject_pct);
+  updateOverall(data.overall_pct, data.overall_completed, data.overall_total);
+}
+
+function setText(id, v) { const el = document.getElementById(id); if (el) el.textContent = v; }
+function setWidth(id, pct) { const el = document.getElementById(id); if (el) el.style.width = `${pct}%`; }
+
+function updateDayProgress(id, done, total, pct) {
+  setText(`day-done-${id}`, done);
+  setText(`day-total-${id}`, total);
+  setText(`day-pct-${id}`, `${pct}%`);
+  setWidth(`day-bar-${id}`, pct);
+}
+
+function updateSubjectProgress(id, done, total, pct) {
+  setText(`subject-done-${id}`, done);
+  setText(`subject-total-${id}`, total);
+  setText(`subject-pct-${id}`, `${pct}%`);
+  setWidth(`subject-bar-${id}`, pct);
+}
+
+function updateOverall(pct, done, total) {
+  setText('kpi-done', done);
+  setText('kpi-total', total);
+  setText('kpi-pct', `${pct}%`);
+  setWidth('kpi-bar', pct);
+}
+
+// ---- Notes ----
+async function saveNote(taskId) {
+  const notes = document.getElementById(`notes-input-${taskId}`)?.value || '';
+  const data = await postJSON(`/api/task/${taskId}/note/`, { notes });
+  if (data.success) showToast('Saved');
+}
+
+function bindNote(ta) {
+  const taskId = ta.id.replace('notes-input-', '');
+  ta.addEventListener('blur', () => saveNote(taskId));
+  ta.addEventListener('keydown', e => { if (e.ctrlKey && e.key === 'Enter') saveNote(taskId); });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('[id^="notes-input-"]').forEach(bindNote);
+});
+
+// ---- Add task ----
+function openAddTaskModal(dayId) {
+  document.getElementById('modal-day-id').value = dayId;
+  document.getElementById('modal-title').value = '';
+  document.getElementById('modal-url').value = '';
+  document.getElementById('modal-error').classList.add('hidden');
+  document.getElementById('add-task-modal').classList.add('open');
+  setTimeout(() => document.getElementById('modal-title').focus(), 50);
+}
+
+function closeAddTaskModal() {
+  document.getElementById('add-task-modal').classList.remove('open');
+}
+
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeAddTaskModal(); });
+
+async function submitAddTask() {
+  const dayId = document.getElementById('modal-day-id').value;
+  const subjectId = document.getElementById('modal-subject').value;
+  const title = document.getElementById('modal-title').value.trim();
+  const url = document.getElementById('modal-url').value.trim();
+  const errEl = document.getElementById('modal-error');
+
+  if (!title) {
+    errEl.textContent = 'Enter a task.';
+    errEl.classList.remove('hidden');
+    return;
+  }
+
+  const data = await postJSON('/api/task/add/', {
+    day_id: dayId, subject_id: subjectId, title,
+    resource_url: url || null, resource_label: '',
+  });
+
+  if (!data.success) {
+    errEl.textContent = data.error || 'Could not add task.';
+    errEl.classList.remove('hidden');
+    return;
+  }
+
+  const t = data.task;
+  const html = `
+    <div class="task-row px-5 py-3 flex items-center gap-3 hover:bg-[#f9fbf7]" id="task-row-${t.id}" data-task-id="${t.id}">
+      <input type="checkbox" class="custom-checkbox" id="cb-${t.id}" onchange="toggleTask(${t.id}, this)" aria-label="Mark done" />
+      <span class="tag">${esc(t.subject_code)}</span>
+      <span class="task-title flex-1 min-w-0 text-sm font-medium">${esc(t.title)}</span>
+      ${t.resource_url ? `<a href="${esc(t.resource_url)}" target="_blank" rel="noopener noreferrer" class="btn btn-soft !py-1 !px-2.5 !text-[11px]">Open</a>` : ''}
+      <button onclick="toggleDrawer('notes-drawer-${t.id}')" class="btn btn-soft !py-1 !px-2.5 !text-[11px]">Notes</button>
+    </div>
+    <div class="drawer bg-[#fbfdfa] px-5" id="notes-drawer-${t.id}">
+      <div class="py-3">
+        <textarea id="notes-input-${t.id}" class="field resize-none font-mono !text-xs" rows="2" placeholder="Notes"></textarea>
+        <div class="flex justify-end mt-2">
+          <button onclick="saveNote(${t.id})" class="btn btn-dark !py-1 !px-3">Save</button>
+        </div>
+      </div>
+    </div>`;
+
+  document.getElementById(`day-tasks-${dayId}`).insertAdjacentHTML('beforeend', html);
+  bindNote(document.getElementById(`notes-input-${t.id}`));
+
+  updateDayProgress(dayId, data.day_completed, data.day_total, data.day_pct);
+  updateOverall(data.overall_pct, data.overall_completed, data.overall_total);
+  closeAddTaskModal();
+  showToast('Task added');
+}
+
+// ---- Coding ----
+async function updateCodingStatus(cpId, status) {
+  const data = await postJSON(`/api/coding/${cpId}/update/`, { status });
+  if (data.success) {
+    const badge = document.getElementById(`cp-status-badge-${cpId}`);
+    badge.textContent = data.status_display;
+    badge.className = `status status-${data.status}`;
+  }
+}
+
+async function saveCPEdit(cpId) {
+  const time = document.getElementById(`cp-time-${cpId}`).value;
+  const edge = document.getElementById(`cp-edge-${cpId}`).value;
+  const data = await postJSON(`/api/coding/${cpId}/update/`, {
+    time_taken_mins: time || null,
+    key_edge_cases: edge,
+  });
+  if (data.success) {
+    document.getElementById(`edge-${cpId}`).textContent = edge;
+    document.getElementById(`cp-edit-${cpId}`).classList.remove('open');
+    showToast('Saved');
+  }
+}
+
+async function addCodingProblem() {
+  const title = document.getElementById('new-cp-title').value.trim();
+  const category = document.getElementById('new-cp-category').value;
+  const url = document.getElementById('new-cp-url').value.trim();
+  const edge = document.getElementById('new-cp-edge').value.trim();
+
+  if (!title || !url) { showToast('Title and link are required'); return; }
+
+  const data = await postJSON('/api/coding/add/', { title, category, url, key_edge_cases: edge });
+  if (!data.success) { showToast(data.error || 'Could not add problem'); return; }
+
+  const html = `
+    <div class="rounded-2xl p-4 border border-[#e4ece0]" id="cp-card-${data.id}">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div class="flex-1 min-w-[240px]">
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="tag">${esc(data.category_display)}</span>
+            <span class="text-sm font-bold">${esc(data.title)}</span>
+          </div>
+          <div class="text-xs text-[#6b7a69] mt-1.5" id="edge-${data.id}">${esc(data.key_edge_cases)}</div>
+        </div>
+        <div class="flex items-center gap-2 flex-wrap">
+          <a href="${esc(data.url)}" target="_blank" rel="noopener noreferrer" class="btn btn-soft !py-1.5">Open</a>
+          <span class="status status-PENDING" id="cp-status-badge-${data.id}">Pending</span>
+          <select id="cp-status-select-${data.id}" onchange="updateCodingStatus(${data.id}, this.value)" class="text-xs bg-white border border-[#d6e2d2] rounded-lg px-2 py-1.5 outline-none cursor-pointer">
+            <option value="PENDING" selected>Pending</option>
+            <option value="SOLVED">Solved</option>
+            <option value="NEEDS_REVISION">Revise</option>
+          </select>
+          <button onclick="toggleDrawer('cp-edit-${data.id}')" class="btn btn-soft !py-1.5">Edit</button>
+        </div>
+      </div>
+      <div class="drawer" id="cp-edit-${data.id}">
+        <div class="pt-3 grid grid-cols-1 sm:grid-cols-[120px_1fr_auto] gap-2 items-end">
+          <input type="number" id="cp-time-${data.id}" class="field" placeholder="Minutes" />
+          <input type="text" id="cp-edge-${data.id}" class="field font-mono !text-xs" placeholder="Edge cases" />
+          <button onclick="saveCPEdit(${data.id})" class="btn btn-dark">Save</button>
+        </div>
+      </div>
+    </div>`;
+
+  document.getElementById('coding-cards').insertAdjacentHTML('beforeend', html);
+  ['new-cp-title', 'new-cp-url', 'new-cp-edge'].forEach(id => document.getElementById(id).value = '');
+  showToast('Problem added');
+}
+
+// ---- Mistakes ----
+function setMistakeBtn(btn, resolved) {
+  btn.textContent = resolved ? 'Resolved' : 'Review';
+  btn.className = `btn ${resolved ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`;
+}
+
+async function toggleMistake(id, btn) {
+  const data = await postJSON(`/api/mistake/${id}/toggle/`, {});
+  if (data.success) setMistakeBtn(btn, data.is_resolved);
+}
+
+async function deleteMistake(id) {
+  if (!confirm('Delete this entry?')) return;
+  const data = await postJSON(`/api/mistake/${id}/delete/`, {});
+  if (data.success) {
+    document.getElementById(`mistake-card-${id}`)?.remove();
+    const c = document.getElementById('sidebar-mistakes-count');
+    c.textContent = Math.max(0, (parseInt(c.textContent, 10) || 1) - 1);
+  }
+}
+
+async function addMistake() {
+  const subjectId = document.getElementById('new-mistake-subject').value;
+  const topic = document.getElementById('new-mistake-topic').value.trim();
+  const wrong = document.getElementById('new-mistake-wrong').value.trim();
+  const fix = document.getElementById('new-mistake-fix').value.trim();
+
+  if (!subjectId || !topic || !wrong || !fix) { showToast('Fill in all fields'); return; }
+
+  const data = await postJSON('/api/mistake/add/', {
+    subject_id: subjectId,
+    topic_or_question: topic,
+    what_went_wrong: wrong,
+    correct_concept_or_fix: fix,
+  });
+  if (!data.success) { showToast(data.error || 'Could not add mistake'); return; }
+
+  document.getElementById('no-mistakes')?.remove();
+
+  const html = `
+    <div class="rounded-2xl p-4 border border-[#e4ece0]" id="mistake-card-${data.id}">
+      <div class="flex flex-wrap items-start justify-between gap-3">
+        <div class="flex-1 min-w-[240px]">
+          <div class="flex items-center gap-2 mb-2 flex-wrap">
+            <span class="tag">${esc(data.subject_code)}</span>
+            <span class="text-sm font-bold">${esc(data.topic_or_question)}</span>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+            <div class="p-3 rounded-xl bg-[#fff5f5] border border-[#fdd8d8]"><span class="font-semibold text-rose-700 block mb-0.5">Wrong</span>${esc(data.what_went_wrong)}</div>
+            <div class="p-3 rounded-xl bg-[#f0faf2] border border-[#c9eed1]"><span class="font-semibold text-emerald-800 block mb-0.5">Fix</span>${esc(data.correct_concept_or_fix)}</div>
+          </div>
+        </div>
+        <div class="flex flex-col gap-1.5">
+          <button onclick="toggleMistake(${data.id}, this)" id="mistake-toggle-${data.id}" class="btn bg-amber-100 text-amber-800">Review</button>
+          <button onclick="deleteMistake(${data.id})" class="btn text-rose-600 hover:bg-rose-50">Delete</button>
+        </div>
+      </div>
+    </div>`;
+
+  document.getElementById('mistake-cards').insertAdjacentHTML('beforeend', html);
+  ['new-mistake-topic', 'new-mistake-wrong', 'new-mistake-fix'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('new-mistake-subject').value = '';
+  const c = document.getElementById('sidebar-mistakes-count');
+  c.textContent = (parseInt(c.textContent, 10) || 0) + 1;
+  showToast('Mistake added');
+}
+</script>
+
+</body>
+</html>
